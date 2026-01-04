@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chat Có Avatar</title>
+<title>Chat Nhiều Người</title>
 
 <style>
 body{
@@ -59,19 +59,176 @@ header{
     background:#00ffcc;
     color:black;
     border-radius:12px;
-    padding:8px;
+    padding:8px 12px;
     margin:8px 0;
-    max-width:90%;
+    max-width:85%;
     position:relative;
-    display:flex;
-    gap:8px;
 }
 .me{
     background:#a3ffcb;
 }
-.avatar{
-    width:40px;
-    height:40px;
-    border-radius:50%;
-    object-fit:cover;
+.name{
+    font-size:12px;
+    font-weight:bold;
 }
+.time{
+    font-size:10px;
+    opacity:0.6;
+}
+.msg img{
+    max-width:100%;
+    border-radius:8px;
+    margin-top:5px;
+}
+.delete{
+    position:absolute;
+    top:5px;
+    right:8px;
+    cursor:pointer;
+    color:red;
+}
+
+/* INPUT */
+#inputBox{
+    display:flex;
+    gap:5px;
+    padding:10px;
+    background:#121c6b;
+}
+#inputBox input[type="text"]{
+    flex:1;
+    padding:10px;
+    border:none;
+    border-radius:20px;
+}
+#inputBox button{
+    padding:10px 15px;
+    border:none;
+    border-radius:20px;
+    background:#00ffcc;
+    cursor:pointer;
+}
+</style>
+</head>
+
+<body>
+
+<header>💬 Chat Nhiều Người</header>
+
+<!-- LOGIN -->
+<div id="login">
+    <h3>🔐 Nhập tên để vào chat</h3>
+    <input id="nameInput" placeholder="Tên của bạn">
+    <button onclick="login()">Vào chat</button>
+</div>
+
+<!-- CHAT -->
+<div id="chatBox">
+    <div id="chat"></div>
+    <div id="inputBox">
+        <input type="file" id="imgInput" accept="image/*">
+        <input id="msgInput" placeholder="Nhập tin nhắn...">
+        <button onclick="send()">Gửi</button>
+    </div>
+</div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
+
+<script>
+// 🔴 DÁN firebaseConfig CỦA BẠN
+const firebaseConfig = {
+  apiKey: "DAN_API_KEY",
+  authDomain: "DAN_AUTH_DOMAIN",
+  databaseURL: "DAN_DATABASE_URL",
+  projectId: "DAN_PROJECT_ID",
+  storageBucket: "DAN_STORAGE_BUCKET"
+};
+
+// Khởi tạo Firebase
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const storage = firebase.storage();
+
+let username="";
+
+const loginDiv=document.getElementById("login");
+const chatBox=document.getElementById("chatBox");
+const chat=document.getElementById("chat");
+const msgInput=document.getElementById("msgInput");
+const imgInput=document.getElementById("imgInput");
+
+// LOGIN
+function login(){
+    const name=document.getElementById("nameInput").value.trim();
+    if(!name){
+        alert("Vui lòng nhập tên!");
+        return;
+    }
+    username=name;
+    loginDiv.style.display="none";
+    chatBox.style.display="flex";
+}
+
+// SEND
+function send(){
+    const text=msgInput.value.trim();
+    const file=imgInput.files[0];
+
+    if(file){
+        const ref=storage.ref("images/"+Date.now()+"_"+file.name);
+        ref.put(file).then(()=>{
+            ref.getDownloadURL().then(url=>{
+                db.ref("messages").push({
+                    name:username,
+                    text:text||"",
+                    image:url,
+                    time:Date.now()
+                });
+            });
+        });
+    }else if(text){
+        db.ref("messages").push({
+            name:username,
+            text:text,
+            time:Date.now()
+        });
+    }
+
+    msgInput.value="";
+    imgInput.value="";
+}
+
+// RECEIVE + DELETE
+db.ref("messages").on("child_added",snap=>{
+    const d=snap.val();
+    const key=snap.key;
+
+    const div=document.createElement("div");
+    div.className="msg"+(d.name===username?" me":"");
+    div.id=key;
+
+    div.innerHTML=`
+        <div class="name">${d.name}</div>
+        ${d.text?`<div>${d.text}</div>`:""}
+        ${d.image?`<img src="${d.image}">`:""}
+        <div class="time">${new Date(d.time).toLocaleTimeString()}</div>
+        ${d.name===username?`<div class="delete" onclick="del('${key}')">🗑️</div>`:""}
+    `;
+
+    chat.appendChild(div);
+    chat.scrollTop=chat.scrollHeight;
+});
+
+function del(key){
+    if(confirm("Xóa tin nhắn này?")){
+        db.ref("messages/"+key).remove();
+        document.getElementById(key)?.remove();
+    }
+}
+</script>
+
+</body>
+</html>
